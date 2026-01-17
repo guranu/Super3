@@ -1,0 +1,70 @@
+name: Android CI (Super3 Compile)
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: Install OpenJDK
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Install Android SDK
+      run: |
+        echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "cmake;3.22.1" "ndk;25.1.8937393"
+        echo "cmake.dir=$ANDROID_HOME/cmake/3.22.1" > android/local.properties
+        echo "ndk.dir=$ANDROID_HOME/ndk/25.1.8937393" >> android/local.properties
+
+    - name: Configure C++ and Gradle
+      run: |
+        # 1. CMakeLists.txt içindeki 3.30 şartını düşür (Find hatası giderildi)
+        sed -i 's/cmake_minimum_required(VERSION 3.30)/cmake_minimum_required(VERSION 3.22)/g' android/app/src/main/cpp/CMakeLists.txt || true
+
+        cd android
+        # 2. Force NDK Version
+        sed -i 's/ndkVersion = .*/ndkVersion = "25.1.8937393"/g' app/build.gradle.kts || true
+        sed -i 's/ndkVersion ".*/ndkVersion("25.1.8937393")/g' app/build.gradle || true
+        
+        # 3. Fix CMake
+        sed -i 's/version = "3.30.3"/version = "3.22.1"/g' app/build.gradle.kts || true
+        sed -i 's/version "3.30.3"/version = "3.22.1"/g' app/build.gradle || true
+        
+        # 4. Clean java
+        sed -i 's/JavaVersion.VERSION_21/JavaVersion.VERSION_17/g' app/build.gradle.kts || true
+        sed -i 's/jvmTarget = "21"/jvmTarget = "17"/g' app/build.gradle.kts || true
+        sed -i 's/"-Xmx64m"//g' ../gradle.properties || true
+
+    - name: Install Gradle 8.13
+      run: |
+        cd android
+        rm -rf gradle/wrapper gradlew gradlew.bat
+        mkdir -p gradle/wrapper
+        curl -L https://github.com/gradle/gradle/raw/v8.13.0/gradle/wrapper/gradle-wrapper.jar -o gradle/wrapper/gradle-wrapper.jar
+        curl -L https://github.com/gradle/gradle/raw/v8.13.0/gradlew -o gradlew
+        echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.13-bin.zip" > gradle/wrapper/gradle-wrapper.properties
+        chmod +x gradlew
+
+    - name: Build APK
+      run: |
+        cd android
+        export ANDROID_NDK_HOME=$ANDROID_HOME/ndk/25.1.8937393
+        ./gradlew assembleRelease --no-daemon -Dorg.gradle.java.home=$JAVA_HOME -Dandroid.ndkpath=$ANDROID_NDK_HOME
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: Super3-RazerEdge-APK
+        path: android/app/build/outputs/apk/debug/app-debug.apk
