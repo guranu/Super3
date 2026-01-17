@@ -61,7 +61,7 @@ jobs:
       run: |
         cd android
         export ANDROID_NDK_HOME=$ANDROID_HOME/ndk/25.1.8937393
-        ./gradlew assembleRelease --no-daemon -Dorg.gradle.java.home=$JAVA_HOME -Dandroid.ndkpath=$ANDROID_NDK_HOME
+        ./gradlew assemble --no-daemon -Dorg.gradle.java.home=$JAVA_HOME -Dandroid.ndkpath=$ANDROID_NDK_HOME
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
