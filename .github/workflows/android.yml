@@ -61,10 +61,10 @@ jobs:
       run: |
         cd android
         export ANDROID_NDK_HOME=$ANDROID_HOME/ndk/25.1.8937393
-        ./gradlew assembleRelease --no-daemon -Dorg.gradle.java.home=$JAVA_HOME -Dandroid.ndkpath=$ANDROID_NDK_HOME
+        ./gradlew assembleDebug --no-daemon -Dorg.gradle.java.home=$JAVA_HOME -Dandroid.ndkpath=$ANDROID_NDK_HOME
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: Super3-APK
-        path: android/app/build/outputs/apk/release/app-releass.apk
+        path: android/app/build/outputs/apk/debug/app-debug.apk
