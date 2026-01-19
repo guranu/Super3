@@ -65,11 +65,11 @@ jobs:
 
     - name: Sign App
       id: sign_app
-      uses: ilharp/sign-android-release@v1.0.4
+      uses: r0adkll/sign-android-release@v1
       with:
-        releaseDir: app/build/outputs
-        signingKey: ${{ secrets.SIGNINGKEYBASE64 }}
-        keyAlias: ${{ secrets.ALIAS }}
+        releaseDirectory: app/build/outputs/apk/release
+        signingKeyBase64: ${{ secrets.SIGNINGKEYBASE64 }}
+        alias: ${{ secrets.ALIAS }}
         keyStorePassword: ${{ secrets.KEYSTOREPASSWORD }}
 
     - name: Upload APK
