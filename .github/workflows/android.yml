@@ -61,13 +61,13 @@ jobs:
       run: |
         cd android
         export ANDROID_NDK_HOME=$ANDROID_HOME/ndk/25.1.8937393
-        ./gradlew assembleRelease
+        ./gradlew assembleDebug --no-daemon -Dorg.gradle.java.home=$JAVA_HOME -Dandroid.ndkpath=$ANDROID_NDK_HOME
 
     - name: Sign App
       id: sign_app
       uses: r0adkll/sign-android-release@v1
       with:
-        releaseDirectory: app/build/outputs/apk/release
+        releaseDirectory: app/build/outputs/apk/debug
         signingKeyBase64: ${{ secrets.SIGNINGKEYBASE64 }}
         alias: ${{ secrets.ALIAS }}
         keyStorePassword: ${{ secrets.KEYSTOREPASSWORD }}
@@ -76,5 +76,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: Super3-APK
-        path: android/app/build/outputs/apk/release/app-release.apk
+        path: android/app/build/outputs/apk/debug/app-debug.apk
 
