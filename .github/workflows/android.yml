@@ -30,7 +30,7 @@ jobs:
 
     - name: Configure C++ and Gradle
       run: |
-        # 1. CMakeLists.txt içindeki 3.30 şartını düşür (Find hatası giderildi)
+        # 1. Lower minimum version requirement
         sed -i 's/cmake_minimum_required(VERSION 3.30)/cmake_minimum_required(VERSION 3.22)/g' android/app/src/main/cpp/CMakeLists.txt || true
 
         cd android
@@ -73,4 +73,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: Super3-APK
-        path: android/app/build/outputs/apk/debug/*.apk
+        path: android/app/build/outputs/apk/release/*.apk
