@@ -1,8 +1,8 @@
-name: Build Super3 APK (Release)
+name: Android CI (Super3 Compile)
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
@@ -10,61 +10,67 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
+    - name: Checkout
       uses: actions/checkout@v4
       with:
         submodules: recursive
+        fetch-depth: 0
 
-    - name: Set up JDK 17
+    - name: Install OpenJDK
       uses: actions/setup-java@v4
       with:
-        distribution: 'temurin'
         java-version: '17'
+        distribution: 'temurin'
 
-    - name: Setup Android SDK
-      uses: android-actions/setup-android@v3
-
-    - name: Install NDK and CMake
+    - name: Install Android SDK
       run: |
-        sdkmanager "ndk;25.2.9519653" "cmake;3.30.3"
+        echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "cmake;3.22.1" "ndk;25.1.8937393"
+        echo "cmake.dir=$ANDROID_HOME/cmake/3.22.1" > android/local.properties
+        echo "ndk.dir=$ANDROID_HOME/ndk/25.1.8937393" >> android/local.properties
 
-    - name: Create gradle.properties
+    - name: Configure C++ and Gradle
       run: |
-        cat > android/gradle.properties << EOF
-        org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
-        android.useAndroidX=true
-        org.gradle.parallel=true
-        org.gradle.daemon=false
-        EOF
+        # 1. CMakeLists.txt içindeki 3.30 şartını düşür (Find hatası giderildi)
+        sed -i 's/cmake_minimum_required(VERSION 3.30)/cmake_minimum_required(VERSION 3.22)/g' android/app/src/main/cpp/CMakeLists.txt || true
 
-    - name: Patch and Build
-      run: |
-        # 1. Clear Java environment variables to prevent startup crashes
-        unset _JAVA_OPTIONS
-        unset JAVA_TOOL_OPTIONS
-        unset JAVA_OPTS
+        cd android
+        # 2. Force NDK Version
+        sed -i 's/ndkVersion = .*/ndkVersion = "25.1.8937393"/g' app/build.gradle.kts || true
+        sed -i 's/ndkVersion ".*/ndkVersion("25.1.8937393")/g' app/build.gradle || true
         
-        # 2. Force Java 17 and Kotlin compatibility across the project
-        find . -name "build.gradle*" -exec sed -i 's/JavaVersion.VERSION_[0-9_]*/JavaVersion.VERSION_17/g' {} +
-        find . -name "build.gradle*" -exec sed -i "s/jvmTarget = .*/jvmTarget = '17'/g" {} +
-
-        # 3. FIX: Add signing config using Kotlin DSL syntax for .kts files
+        # 3. Fix CMake
+        sed -i 's/version = "3.30.3"/version = "3.22.1"/g' app/build.gradle.kts || true
+        sed -i 's/version "3.30.3"/version = "3.22.1"/g' app/build.gradle || true
+        
+        # 4. Clean java
+        sed -i 's/JavaVersion.VERSION_21/JavaVersion.VERSION_17/g' app/build.gradle.kts || true
+        sed -i 's/jvmTarget = "21"/jvmTarget = "17"/g' app/build.gradle.kts || true
+        sed -i 's/"-Xmx64m"//g' ../gradle.properties || true
+        
+        # 5. Add signing config using Kotlin DSL syntax for .kts files
         find . -name "build.gradle.kts" -exec sed -i '/release {/a \            signingConfig = signingConfigs.getByName("debug")' {} +
         
-        # 4. Add signing config using Groovy syntax for any standard .gradle files
+        # 6. Add signing config using Groovy syntax for any standard .gradle files
         find . -name "build.gradle" ! -name "*.kts" -exec sed -i '/release {/a \            signingConfig signingConfigs.debug' {} +
 
-        # 5. Build the Release version
+    - name: Install Gradle 8.13
+      run: |
         cd android
+        rm -rf gradle/wrapper gradlew gradlew.bat
+        mkdir -p gradle/wrapper
+        curl -L https://github.com/gradle/gradle/raw/v8.13.0/gradle/wrapper/gradle-wrapper.jar -o gradle/wrapper/gradle-wrapper.jar
+        curl -L https://github.com/gradle/gradle/raw/v8.13.0/gradlew -o gradlew
+        echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.13-bin.zip" > gradle/wrapper/gradle-wrapper.properties
         chmod +x gradlew
-        export ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/25.2.9519653
-        
-        ./gradlew assembleRelease \
-          -Dorg.gradle.java.home="$JAVA_HOME" \
-          -Pandroid.kotlinOptions.jvmTarget=17
+
+    - name: Build APK
+      run: |
+        cd android
+        export ANDROID_NDK_HOME=$ANDROID_HOME/ndk/25.1.8937393
+        ./gradlew assembleRelease --no-daemon -Dorg.gradle.java.home=$JAVA_HOME -Dandroid.ndkpath=$ANDROID_NDK_HOME
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: Super3-Release
-        path: android/app/build/outputs/apk/release/*.apk
+        name: Super3-APK
+        path: android/app/build/outputs/apk/debug/*.apk
